@@ -14,7 +14,16 @@ const isJsonString = (str: string) => {
     JSON.parse(str);
     return true;
   } catch (e) {
-    return false;
+    try {
+      let converted = str.replace(/'/g, '"');
+      converted = converted.replace(/{(.+?)}/g, function (match) {
+        return match.replace(/"/g, '\\"');
+      });
+      JSON.parse(converted);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 };
 
@@ -37,8 +46,21 @@ const deepParseValues = (value: any): any => {
     }
 
     if (isJsonString(value)) {
-      const parsed = JSON.parse(value);
-      return deepParseValues(parsed);
+      try {
+        const parsed = JSON.parse(value);
+        return deepParseValues(parsed);
+      } catch (e) {
+        try {
+          let converted = value.replace(/'/g, '"');
+          converted = converted.replace(/{(.+?)}/g, function (match) {
+            return match.replace(/"/g, '\\"');
+          });
+          const parsed = JSON.parse(converted);
+          return parsed;
+        } catch (e) {
+          return value;
+        }
+      }
     }
 
     // It's a string but not a JSON string, return as is
