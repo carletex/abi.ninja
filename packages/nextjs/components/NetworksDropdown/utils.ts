@@ -79,18 +79,18 @@ export const filterChains = (
   return Object.values(chains).filter(chain => !networkIds.has(chain.id) && !existingChainIds.has(chain.id));
 };
 
-const excludeChainKeys = ["lineaTestnet", "x1Testnet"]; // duplicate chains in viem chains
-
 type Chains = Record<string, Chain>;
 
 const unfilteredChains: Chains = wagmiChains as Chains;
 
-export const filteredChains = Object.keys(unfilteredChains)
-  .filter(key => !excludeChainKeys.includes(key))
-  .reduce((obj: Chains, key) => {
-    obj[key] = unfilteredChains[key];
-    return obj;
-  }, {} as Chains);
+// Remove duplicate chains by keeping only the first occurrence of each chainId
+export const filteredChains = Object.entries(unfilteredChains).reduce((acc: Chains, [key, chain]) => {
+  const isDuplicateId = Object.values(acc).some(existingChain => existingChain.id === chain.id);
+  if (!isDuplicateId) {
+    acc[key] = chain;
+  }
+  return acc;
+}, {} as Chains);
 
 export const mapChainsToOptions = (chains: Chain[]): Options[] => {
   return chains.map(chain => ({
