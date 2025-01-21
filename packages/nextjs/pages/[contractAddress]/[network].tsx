@@ -12,7 +12,7 @@ import { SwitchTheme } from "~~/components/SwitchTheme";
 import { ContractUI } from "~~/components/scaffold-eth";
 import useFetchContractAbi from "~~/hooks/useFetchContractAbi";
 import { useGlobalState } from "~~/services/store/store";
-import { getNetworkName, parseAndCorrectJSON } from "~~/utils/abi";
+import { getAbiFromLocalStorage, getNetworkName, parseAndCorrectJSON, saveAbiToLocalStorage } from "~~/utils/abi";
 import { notification } from "~~/utils/scaffold-eth";
 
 interface ParsedQueryContractDetailsPage extends ParsedUrlQuery {
@@ -51,17 +51,27 @@ const ContractDetailPage = ({ addressFromUrl, chainIdFromUrl }: ServerSideProps)
   const [localContractAbi, setLocalContractAbi] = useState<string>("");
   const [isUseLocalAbi, setIsUseLocalAbi] = useState(false);
   const [localContractData, setLocalContractData] = useState<ContractData | null>(null);
+  const [isLoadingLocalStorage, setIsLoadingLocalStorage] = useState(true);
 
-  const { chainId, setImplementationAddress, contractAbi, chains, addChain, setTargetNetwork } = useGlobalState(
-    state => ({
-      chains: state.chains,
-      addChain: state.addChain,
-      chainId: state.targetNetwork.id,
-      setTargetNetwork: state.setTargetNetwork,
-      setImplementationAddress: state.setImplementationAddress,
-      contractAbi: state.contractAbi,
-    }),
-  );
+  const {
+    chainId,
+    setAbiContractAddress,
+    setImplementationAddress,
+    contractAbi,
+    chains,
+    addChain,
+    setTargetNetwork,
+    setContractAbi,
+  } = useGlobalState(state => ({
+    chains: state.chains,
+    addChain: state.addChain,
+    chainId: state.targetNetwork.id,
+    setAbiContractAddress: state.setAbiContractAddress,
+    setTargetNetwork: state.setTargetNetwork,
+    setImplementationAddress: state.setImplementationAddress,
+    contractAbi: state.contractAbi,
+    setContractAbi: state.setContractAbi,
+  }));
 
   const {
     contractData: fetchedContractData,
@@ -74,6 +84,20 @@ const ContractDetailPage = ({ addressFromUrl, chainIdFromUrl }: ServerSideProps)
     disabled: contractAbi.length > 0,
   });
 
+  useEffect(() => {
+    const savedAbi = getAbiFromLocalStorage(contractAddress);
+    if (savedAbi) {
+      setLocalContractData({ abi: savedAbi, address: contractAddress });
+      setAbiContractAddress(contractAddress);
+      setIsUseLocalAbi(true);
+    }
+    setIsLoadingLocalStorage(false);
+
+    if (!isLoadingLocalStorage && savedAbi) {
+      notification.success("Loaded ABI from local storage. Click the gear icon to manage ABIs.");
+    }
+  }, [contractAddress, isLoadingLocalStorage, setAbiContractAddress]);
+
   const effectiveContractData =
     contractAbi.length > 0
       ? { abi: contractAbi, address: contractAddress }
@@ -81,7 +105,7 @@ const ContractDetailPage = ({ addressFromUrl, chainIdFromUrl }: ServerSideProps)
       ? localContractData
       : fetchedContractData;
 
-  const error = isUseLocalAbi ? null : fetchError;
+  const error = isUseLocalAbi || isLoadingLocalStorage ? null : fetchError;
 
   useEffect(() => {
     if (network) {
@@ -101,8 +125,10 @@ const ContractDetailPage = ({ addressFromUrl, chainIdFromUrl }: ServerSideProps)
       const parsedAbi = parseAndCorrectJSON(localContractAbi);
       if (parsedAbi) {
         setIsUseLocalAbi(true);
+        saveAbiToLocalStorage(contractAddress, parsedAbi);
         setLocalContractData({ abi: parsedAbi, address: contractAddress });
-        notification.success("ABI successfully loaded.");
+        setAbiContractAddress(contractAddress);
+        setContractAbi(parsedAbi);
       } else {
         throw new Error("Parsed ABI is null or undefined");
       }
@@ -132,7 +158,7 @@ const ContractDetailPage = ({ addressFromUrl, chainIdFromUrl }: ServerSideProps)
       <div className="bg-base-100 h-screen flex flex-col">
         <MiniHeader />
         <div className="flex flex-col gap-y-6 lg:gap-y-8 flex-grow h-full overflow-hidden">
-          {isLoading && !isUseLocalAbi ? (
+          {isLoading || isLoadingLocalStorage ? (
             <div className="flex justify-center h-full mt-14">
               <span className="loading loading-spinner text-primary h-14 w-14"></span>
             </div>

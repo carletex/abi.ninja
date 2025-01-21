@@ -1,5 +1,65 @@
 import { isZeroAddress } from "./scaffold-eth/common";
-import { Address, Chain } from "viem";
+import { Abi, Address, Chain } from "viem";
+
+const ABI_STORAGE_KEY = "abi_ninja_storage";
+
+type AbiStorage = {
+  version: string;
+  abis: Record<string, Abi>;
+};
+
+const getAbiStorage = (): AbiStorage => {
+  if (typeof window === "undefined") return { version: "1.0", abis: {} };
+  try {
+    const storage = localStorage.getItem(ABI_STORAGE_KEY);
+    return storage ? JSON.parse(storage) : { version: "1.0", abis: {} };
+  } catch (error) {
+    console.error("Failed to get ABI storage:", error);
+    return { version: "1.0", abis: {} };
+  }
+};
+
+const saveAbiStorage = (storage: AbiStorage) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ABI_STORAGE_KEY, JSON.stringify(storage));
+  } catch (error) {
+    console.error("Failed to save ABI storage:", error);
+  }
+};
+
+export const getAbiFromLocalStorage = (contractAddress: string): Abi | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const storage = getAbiStorage();
+    return storage.abis[contractAddress.toLowerCase()] || null;
+  } catch (error) {
+    console.error("Failed to get ABI from localStorage:", error);
+    return null;
+  }
+};
+
+export const saveAbiToLocalStorage = (contractAddress: string, abi: Abi) => {
+  if (typeof window === "undefined") return;
+  try {
+    const storage = getAbiStorage();
+    storage.abis[contractAddress.toLowerCase()] = abi;
+    saveAbiStorage(storage);
+  } catch (error) {
+    console.error("Failed to save ABI to localStorage:", error);
+  }
+};
+
+export const removeAbiFromLocalStorage = (contractAddress: string) => {
+  if (typeof window === "undefined") return;
+  try {
+    const storage = getAbiStorage();
+    delete storage.abis[contractAddress.toLowerCase()];
+    saveAbiStorage(storage);
+  } catch (error) {
+    console.error("Failed to remove ABI from localStorage:", error);
+  }
+};
 
 export const fetchContractABIFromEtherscan = async (verifiedContractAddress: Address, chainId: number) => {
   const apiKey = process.env.NEXT_PUBLIC_ETHERSCAN_V2_API_KEY;
